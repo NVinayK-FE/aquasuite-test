@@ -1,0 +1,23 @@
+{
+  "skill_name": "jira-epic-orchestrator",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "start jira-epic-orchestrator\n\nI want to build a complete SaaS platform for managing aquarium maintenance. It needs user management with roles (admin, technician, customer), a scheduling system for maintenance visits, an IoT sensor dashboard for water quality monitoring, a billing and subscription module, and a notification system for alerts. This is a big project spanning multiple teams.",
+      "expected_output": "Should detect this as Initiative-level scope (5+ distinct functional areas: user mgmt, scheduling, IoT, billing, notifications). Should propose an Initiative with multiple Epics, one per functional area. Should NOT try to squeeze this into a single Epic.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "plan epic\n\nI need to build a user registration and login system. Users should be able to sign up with email/password, verify their email, log in, reset their password, and manage their profile. We're using Postgres and a REST API.",
+      "expected_output": "Should detect this as single Epic scope (one focused area: authentication). Should NOT suggest an Initiative. Should proceed with Epic definition, then break into stories (signup, login, password reset, profile management), then dive deep technically asking about database tables, API endpoints, etc.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "I need to break down a feature for product inventory management. We need to track products with SKUs, manage stock levels across multiple warehouses, handle purchase orders from suppliers, and generate low-stock alerts. The product catalog has categories and variants (size, color). We use MySQL.",
+      "expected_output": "Should trigger the skill from natural language (no explicit command). Should assess scope — this is borderline but likely a single Epic with 3-4 stories (product catalog, stock management, purchase orders, alerts). Should ask deep technical questions about the MySQL schema, tables for products/variants/warehouses/stock_levels, API endpoints for CRUD operations.",
+      "files": []
+    }
+  ]
+}
