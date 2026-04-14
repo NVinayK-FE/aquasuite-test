@@ -59,7 +59,13 @@ Transition the ticket to **In Progress** using `transitionJiraIssue`. Inform the
 
 **Read and follow `.claude/skills/jira/_shared/references/spec-first-protocol.md`.**
 
-This step ensures all required `.spec` files exist before any code is written. If specs are missing, they are created and registered first.
+This is a **hard gate** — no code is written until all required specs are confirmed. The protocol performs a deep audit at file AND section level:
+
+1. **Identify Required Specs** — Analyze ALL spec categories (naming, architecture, config, API, DB, business rules) for what this task needs
+2. **Deep Scan** — Read each spec file, check section IDs (`<!-- id: X.Y -->`), assess completeness
+3. **Gap Report** — Present all missing files, missing sections, and incomplete sections; ask for human input and additions
+4. **Create/Update Specs** — Interactively create missing specs and update incomplete ones with human confirmation at each step
+5. **Final Confirmation** — Present complete spec coverage table; only proceed after human confirms all specs are ready
 
 ### 4. Present Implementation Plan {#impl.4.implementation-plan}
 
