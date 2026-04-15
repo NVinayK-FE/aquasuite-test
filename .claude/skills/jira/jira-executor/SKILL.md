@@ -2,8 +2,10 @@
 name: jira-executor
 description: >
   MANDATORY TRIGGERS: "start jira-executor", "execute ticket", "work on ticket",
-  "implement ticket", "pick up ticket", or any JIRA ticket key like ACD-4.
+  "implement ticket", "pick up ticket", or routed from jira-router for
+  Task or Subtask issue types.
   Starts a disciplined, step-by-step JIRA ticket implementation workflow.
+  Handles Task and Subtask tickets. Bug tickets are handled by jira-bug-executor.
   Do NOT scan or read any other project files until the flow explicitly requires it
   in Step 3.
 ---
