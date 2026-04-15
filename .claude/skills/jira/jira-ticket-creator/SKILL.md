@@ -1,11 +1,13 @@
 ---
 name: jira-ticket-creator
 description: >
-  MANDATORY TRIGGERS: "start jira-ticket-creator", "create a jira ticket",
-  "log a bug", "open a task", "new story", "create epic", "file a ticket",
-  "new jira issue". Starts an interactive JIRA ticket creation flow in the
-  ACD (Aqua Claude Dev) space. Do NOT scan or read any other project files —
-  go straight to Step 1 of the flow.
+  Use this skill to start an interactive JIRA ticket creation flow in the ACD
+  (Aqua Claude Dev) space. Trigger on "start jira-ticket-creator", "create a
+  jira ticket", "log a bug", "open a task", "new story", "create epic", "file
+  a ticket", "new jira issue" — and use it as the entry point for the project's
+  ticket-first workflow whenever a change needs a ticket before implementation.
+  Go straight to Step 1 rather than scanning project files, so the user reaches
+  the first question quickly.
 ---
 
 # Jira Ticket Creator

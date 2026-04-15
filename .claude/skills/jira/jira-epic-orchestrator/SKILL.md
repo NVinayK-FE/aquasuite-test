@@ -1,17 +1,16 @@
 ---
 name: jira-epic-orchestrator
 description: >
-  MANDATORY TRIGGERS: "plan epic", "orchestrate epic", "execute epic",
+  Use this skill whenever the user wants to go from a feature idea to a full
+  JIRA hierarchy, implement an existing epic, or modify an epic's structure.
+  Trigger on phrases like "plan epic", "orchestrate epic", "execute epic",
   "update epic", "update and execute epic", "start jira-epic-orchestrator",
-  "plan feature", "break down feature", "plan initiative", or any request
-  to plan, create, execute, or modify a full feature hierarchy in JIRA.
-  Use this skill whenever the user wants to go from a feature idea to JIRA
-  tickets, implement an existing epic, or modify an epic's structure.
-  This skill covers 5 modes: plan-only, plan+execute, execute-only,
-  update-only, and update+execute. It scales hierarchy based on scope —
-  small features → single Epic, large features → Initiative with multiple Epics.
-  Even if the user just says "I have a feature idea" or "let's break this down",
-  this skill is likely what they need.
+  "plan feature", "break down feature", "plan initiative" — and also on softer
+  cues like "I have a feature idea" or "let's break this down", since users
+  often don't name the skill directly. It covers five modes (plan-only,
+  plan+execute, execute-only, update-only, update+execute) and scales the
+  hierarchy to match scope: small features become a single Epic, large ones
+  become an Initiative with multiple Epics.
 ---
 
 <!-- ============================================================

@@ -1,14 +1,14 @@
 ---
 name: jira-bug-executor
 description: >
-  MANDATORY TRIGGERS: "start jira-bug-executor", "fix bug", "debug ticket",
-  or routed from jira-router for Bug issue types.
-  Starts a disciplined bug investigation and fix workflow. Unlike jira-executor
-  (which is for tasks/subtasks), this skill prioritises root-cause analysis
-  before any code changes. It reproduces the issue, traces the root cause,
-  confirms the diagnosis with the user, THEN implements the fix.
-  Do NOT scan or read any other project files until the flow explicitly
-  requires it in Step 3.
+  Use this skill for any JIRA Bug ticket — whenever the user says "start
+  jira-bug-executor", "fix bug", "debug ticket", or when the router dispatches
+  a Bug issue. Bugs need a root-cause pass before code changes, otherwise fixes
+  tend to paper over the real problem; this skill reproduces the issue, traces
+  the cause, confirms the diagnosis with the user, then implements the fix.
+  Prefer this over jira-executor whenever the ticket type is Bug. Avoid scanning
+  unrelated project files until Step 3 asks for it, so the investigation stays
+  focused.
 ---
 
 # JIRA Bug Executor

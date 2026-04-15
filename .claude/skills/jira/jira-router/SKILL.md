@@ -1,13 +1,14 @@
 ---
 name: jira-router
 description: >
-  MANDATORY TRIGGERS: "implement <TICKET-ID>", "execute <TICKET-ID>",
-  "work on <TICKET-ID>", "pick up <TICKET-ID>", "start <TICKET-ID>",
-  "<TICKET-ID> give steps", or any message that mentions a JIRA ticket key
-  (e.g., ACD-18) with intent to implement or execute it.
-  This skill auto-detects the ticket type (Epic, Story, Task, Subtask, Bug)
-  and routes to the correct executor skill. The user never needs to remember
-  which command to use — just mention the ticket ID.
+  Use this skill whenever a message mentions a JIRA ticket key (e.g., ACD-18)
+  with intent to implement or execute it — phrases like "implement <TICKET-ID>",
+  "execute <TICKET-ID>", "work on <TICKET-ID>", "pick up <TICKET-ID>",
+  "start <TICKET-ID>", "<TICKET-ID> give steps", or even a bare ticket ID on
+  its own. The router fetches the ticket, detects its type (Epic, Story, Task,
+  Subtask, Bug), and dispatches to the correct executor so the user never has
+  to remember which skill to call. Prefer routing through this skill over
+  guessing the executor directly.
 ---
 
 # JIRA Router

@@ -24,22 +24,16 @@
 
 Modify an existing epic's structure: add stories and tasks, remove items, edit existing items, or restructure the hierarchy. JIRA tickets and spec files are updated. **No code is written.**
 
-## Section IDs
+## Contents
 
-**Prefix:** `update`
-
-When starting each stage, display the section ID:
-
-```
-▶ [update.N.name] — Stage title
-```
+Jump directly to a stage via the links below. Display `▶ [update.N.name] — Stage title` when entering each stage. The `update.` prefix is used throughout.
 
 | ID | Stage |
 |---|---|
-| `update.1.load-current-state` | Load Current State |
-| `update.2.collect-modifications` | Collect Modifications |
-| `update.3.review-modified-plan` | Review Modified Plan |
-| `update.4.apply-changes` | Apply Changes to JIRA and Spec File |
+| [`update.1.load-current-state`](#update.1.load-current-state) | Load Current State |
+| [`update.2.collect-modifications`](#update.2.collect-modifications) | Collect Modifications |
+| [`update.3.review-modified-plan`](#update.3.review-modified-plan) | Review Modified Plan |
+| [`update.4.apply-changes`](#update.4.apply-changes) | Apply Changes to JIRA and Spec File |
 
 ---
 

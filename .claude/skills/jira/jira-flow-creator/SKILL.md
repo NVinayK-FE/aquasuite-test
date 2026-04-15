@@ -1,12 +1,14 @@
 ---
 name: jira-flow-creator
 description: >
-  MANDATORY TRIGGERS: "start flow-creator", "create flow", "document flow",
-  "flow documentation", "create e2e", "create test cases", "forgot password flow",
-  "login flow", "checkout flow", or any request to document a user flow with
-  test scenarios. Use this skill to create or update flow documentation (flow.md),
-  E2E test specs (e2e.yaml), and unit test specs (unit.yaml) for any user-facing
-  or system flow. Works standalone or integrated into JIRA ticket execution.
+  Use this skill to create or update flow documentation (flow.md), E2E test
+  specs (e2e.yaml), and unit test specs (unit.yaml) for any user-facing or
+  system flow. Trigger on "start flow-creator", "create flow", "document flow",
+  "flow documentation", "create e2e", "create test cases", or flow-shaped
+  phrases like "forgot password flow", "login flow", "checkout flow" — even
+  when the user doesn't say the word "flow" explicitly but is describing a
+  user journey with test scenarios. Works standalone and is also invoked as
+  a sub-protocol during JIRA ticket execution.
 ---
 
 <!-- ============================================================

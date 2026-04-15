@@ -1,49 +1,21 @@
 ---
 name: jira-story-executor
 description: >
-  MANDATORY TRIGGERS: "start jira-story-executor", "execute story",
-  "implement story", "work on story", or any command like
-  "execute story ACD-8". Use this skill when the user wants to
-  execute a single JIRA Story and ALL its subtasks in sequence.
-  This is the story-level counterpart to the epic orchestrator's
-  execute mode — it focuses on one story, runs spec-first once
-  at the story level, then implements each subtask one by one
-  with full git control after the story is complete.
-  Different from jira-executor (single ticket) and
-  jira-batch-executor (multiple independent tickets).
+  Use this skill whenever the user wants to execute a single JIRA Story and all
+  of its subtasks in sequence. Trigger on "start jira-story-executor",
+  "execute story", "implement story", "work on story", or commands like
+  "execute story ACD-8". It is the story-level counterpart to the epic
+  orchestrator's execute mode: spec-first runs once at the story level, each
+  subtask is implemented in turn, and git control kicks in after the story is
+  complete. Prefer this over jira-executor (which handles a single Task/Subtask
+  in isolation) and over jira-batch-executor (which handles multiple unrelated
+  tickets).
 ---
 
-<!-- ============================================================
-     JIRA STORY EXECUTOR
-     ============================================================
-     Execute a single JIRA Story and all its subtasks.
-     
-     Trigger: execute story ACD-8
-              start jira-story-executor ACD-8
-     
-     This skill sits between jira-executor (single ticket) and
-     jira-epic-orchestrator execute mode (full epic). It takes
-     a Story key, fetches all child subtasks, runs spec-first
-     ONCE at the story level, then implements each subtask in
-     order with the full implementation protocol.
-     
-     After all subtasks are done, the full Git Workflow (Level 3)
-     is presented — same as batch-executor.
-     
-     5 Stages:
-       1. Load Story Context — Fetch story, subtasks, spec file
-       2. Spec-First & Flow Check — Run once for the entire story
-       3. Subtask-by-Subtask Execution — Implement each subtask
-       4. Git Workflow — Full interactive git menu (Level 3)
-       5. Story Completion — JIRA updates and summary
-     
-     Shared Protocols Used:
-       - spec-first-protocol.md     → Deep spec audit before coding
-       - flow-protocol.md           → Detect and document user flows
-       - implementation-protocol.md → Per-subtask execution (steps 4-5)
-       - human-confirmation-protocol.md → All user confirmations
-       - git-workflow.md Level 3    → Full interactive git menu
-     ============================================================ -->
+<!-- JIRA Story Executor — 5 stages (load → spec/flow check → subtask execution → git workflow → completion).
+     Spec-first runs once at the story level; each subtask is implemented in sequence; Level 3 git menu
+     after the story is complete. Uses shared protocols: spec-first, flow, implementation, human-confirmation,
+     git-workflow (Level 3). See `executor-comparison.md` for how this compares to the other executors. -->
 
 # JIRA Story Executor
 
@@ -73,16 +45,7 @@ When starting each stage, display the section ID:
 
 ## How It Relates to Other Skills
 
-| Skill | Input | Scope | Spec-first runs | Git control |
-|---|---|---|---|---|
-| `jira-executor` | 1 ticket key | Single ticket | Once per ticket | Level 1 (basic) |
-| `jira-story-executor` | 1 story key | Story + all subtasks | Once per story | Level 3 (full) |
-| `jira-batch-executor` | Comma-separated keys | Multiple independent tickets | Once per ticket | Level 3 (full) |
-| `jira-epic-orchestrator` (execute) | Epic key | Epic → stories → tasks | Once per story | Level 2 (standard) |
-
-**Key difference from batch-executor:** The batch executor treats each ticket independently and runs spec-first per ticket. The story executor treats the story as one unit — spec-first runs once covering ALL subtasks, then subtasks are executed in sequence without repeating the spec check.
-
-**Key difference from epic orchestrator execute:** The epic orchestrator processes an entire epic (multiple stories). The story executor focuses on a single story and provides Level 3 git control (full interactive menu) instead of Level 2.
+See `.claude/skills/jira/_shared/references/executor-comparison.md` for the full comparison table and the distinctions between story-executor, batch-executor, and the epic orchestrator's execute mode. In short: this skill is for a single Story with its subtasks processed as one cohesive unit — spec-first runs once at the story level and Level 3 git control kicks in after all subtasks are done.
 
 ---
 

@@ -1,13 +1,13 @@
 ---
 name: jira-executor
 description: >
-  MANDATORY TRIGGERS: "start jira-executor", "execute ticket", "work on ticket",
-  "implement ticket", "pick up ticket", or routed from jira-router for
-  Task or Subtask issue types.
-  Starts a disciplined, step-by-step JIRA ticket implementation workflow.
-  Handles Task and Subtask tickets. Bug tickets are handled by jira-bug-executor.
-  Do NOT scan or read any other project files until the flow explicitly requires it
-  in Step 3.
+  Use this skill to implement a single JIRA Task or Subtask with a disciplined,
+  step-by-step workflow. Trigger on "start jira-executor", "execute ticket",
+  "work on ticket", "implement ticket", "pick up ticket", or whenever the router
+  dispatches a Task or Subtask. Bugs are handled by jira-bug-executor; multiple
+  tickets in a row go to jira-batch-executor; a Story with its subtasks goes to
+  jira-story-executor. Avoid scanning unrelated project files until Step 3 asks
+  for it, so the implementation stays focused on the ticket at hand.
 ---
 
 # JIRA Executor

@@ -49,22 +49,43 @@ Claude Code is a disciplined implementation partner that:
 Every change that touches the project folder must have a corresponding JIRA ticket **before** any implementation starts. This includes:
 
 - New features, bug fixes, and enhancements
-- Spelling corrections, typo fixes, or formatting changes
-- `.spec` or `.md` file updates (outside the JIRA Skills section of this root `CLAUDE.md`)
+- Spelling corrections, typo fixes, or formatting changes in project source
+- `.spec` file creation or updates
 - Installing, upgrading, or removing any library or dependency
-- Any file creation, modification, or deletion in the project
+- Any file creation, modification, or deletion in project source (code, assets, specs, flows, etc.)
 
-**The only exception:** JIRA skill definitions themselves (files under `.claude/skills/jira/` and the JIRA Skills section of this root `CLAUDE.md`) do not require a ticket.
+**Exceptions (no ticket required):**
+
+- **Skill definitions** — any file under `.claude/skills/` (create, edit, delete). Skills are meta-configuration that governs how Claude operates, not product content.
+- **This root `CLAUDE.md`** — the file you are reading. It is also meta-configuration and can be edited directly.
+
+Anything outside these two exceptions still requires a ticket first. When in doubt, treat the change as requiring a ticket and ask.
 
 ## Required Workflow (Strictly Enforced) {#cmd.5.required-workflow}
 
+The ticket-first rule applies to **every** issue type — Epic, Story, Task, Bug, or Subtask. What type the work is recorded as does not affect whether a ticket is required; the only question is **which entry point to use**, and that is decided by the *scope* of the ask, not the type label.
+
+### Entry point — pick based on scope {#cmd.5.1.entry-point}
+
+Before creating anything, assess the scope of the request:
+
+| Scope                                                                                                | Entry point                                       | Why                                                                                           |
+| ---------------------------------------------------------------------------------------------------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| **Small** — the ask is clearly one unit of work that fits inside a single ticket                     | `start jira-ticket-creator`                       | Produces one Task / Bug / Story / Subtask / Epic-shell ticket.                                |
+| **Big** — the ask feels larger than one ticket, or naturally breaks into multiple pieces of work     | `plan epic` (routes to `jira-epic-orchestrator`)  | Produces an Epic + child Stories/Tasks with parent/child linkage and a clear execution order. |
+
+**If unsure, ask the user before deciding.** When the ask feels big — or you notice you'd struggle to fit everything under a single ticket's acceptance criteria — default to offering `plan epic`. A lone Epic shell is rarely the right answer; if the natural type for the ask is "Epic", that's itself a signal to use `plan epic` instead of `jira-ticket-creator`.
+
+### Sequence {#cmd.5.2.sequence}
+
 Every request that involves a change to the project must follow this sequence:
 
-1. **Create the ticket first** — Use `start jira-ticket-creator` to create the appropriate JIRA ticket (Epic, Story, Task, or Subtask) based on the scope of work. No code, no file edits, no installs until the ticket exists.
-2. **Ask for human confirmation** — Present the created ticket to the user and explicitly ask: _"Should I proceed with execution?"_ Wait for approval before continuing.
-3. **Pick the right skill** — Route through the **jira-router** or use the appropriate direct trigger to select the correct executor skill for the ticket type.
-4. **Verify `.spec` files** — Before implementation, check whether any `.spec` files need to be created or updated for the change. If yes, update `.spec` first.
-5. **Implement the change** — Only now execute the actual code/file changes as defined by the ticket and specs.
+1. **Pick the entry point** — Small ask → `start jira-ticket-creator`. Big ask → `plan epic`. When uncertain, ask the user. No code, no file edits, no installs until a ticket exists.
+2. **Create the ticket(s)** — Run the chosen entry-point skill to create the ticket (or Epic + children) in JIRA.
+3. **Ask for human confirmation** — Present what was created and explicitly ask: _"Should I proceed with execution?"_ Wait for approval before continuing.
+4. **Pick the right executor** — Route through the **jira-router** or use the appropriate direct trigger to select the correct executor skill for the ticket type.
+5. **Verify `.spec` files** — Before implementation, check whether any `.spec` files need to be created or updated for the change. If yes, update `.spec` first.
+6. **Implement the change** — Only now execute the actual code/file changes as defined by the ticket and specs.
 
 **Human confirmation is required at every decision point.** When in doubt, ask — never assume.
 

@@ -1,14 +1,14 @@
 ---
 name: jira-batch-executor
 description: >
-  MANDATORY TRIGGERS: "start jira-batch-executor", "execute tickets",
-  "run tickets", "batch execute", or any comma-separated list of JIRA ticket
-  keys (e.g., "ACD-1, ACD-2, ACD-3"). Use this skill whenever the user wants
-  to implement multiple standalone JIRA tickets in sequence, one after another,
-  with full git control (commit, push, branch, merge, pull, PR) after each ticket.
-  This is different from jira-executor (single ticket) and jira-epic-orchestrator
-  (epic-level). This skill handles a queue of independent tickets processed
-  in order with interactive git workflow between each.
+  Use this skill whenever the user wants to implement several standalone JIRA
+  tickets back-to-back with git control (commit, push, branch, merge, pull, PR)
+  between each one. Trigger on phrases like "start jira-batch-executor",
+  "execute tickets", "run tickets", "batch execute", or any comma-separated list
+  of JIRA ticket keys (e.g., "ACD-1, ACD-2, ACD-3") — even if the user doesn't
+  say the word "batch". Prefer this over jira-executor (single ticket) and
+  jira-epic-orchestrator (epic-level hierarchy) when the work is a queue of
+  independent tickets processed in order.
 ---
 
 <!-- ============================================================

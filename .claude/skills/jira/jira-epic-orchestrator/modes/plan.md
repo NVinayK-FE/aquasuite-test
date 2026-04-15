@@ -33,26 +33,20 @@
 
 **Key principle:** Follow Human Confirmation Protocol for every confirmation. One question at a time. Never originate substance — all decisions come from the user.
 
-## Section IDs
+## Contents
 
-**Prefix:** `plan`
-
-When starting each stage, display the section ID:
-
-```
-▶ [plan.N.name] — Stage title
-```
+This file is long (8 stages); use the links below to jump directly. When starting each stage, display the section ID in the form `▶ [plan.N.name] — Stage title`. The `plan.` prefix is used throughout.
 
 | ID | Stage |
 |---|---|
-| `plan.1.feature-discovery` | Feature Discovery |
-| `plan.2.scope-assessment` | Scope Assessment & Hierarchy Proposal |
-| `plan.3.epic-definition` | Epic Definition(s) |
-| `plan.4.story-breakdown` | Story Breakdown |
-| `plan.5.task-decomposition` | Task Decomposition & Technical Deep-Dive |
-| `plan.6.full-plan-review` | Full Plan Review |
-| `plan.7.output-generation` | Output Generation |
-| `plan.8.batch-jira-creation` | Batch JIRA Creation |
+| [`plan.1.feature-discovery`](#plan.1.feature-discovery) | Feature Discovery |
+| [`plan.2.scope-assessment`](#plan.2.scope-assessment) | Scope Assessment & Hierarchy Proposal |
+| [`plan.3.epic-definition`](#plan.3.epic-definition) | Epic Definition(s) |
+| [`plan.4.story-breakdown`](#plan.4.story-breakdown) | Story Breakdown |
+| [`plan.5.task-decomposition`](#plan.5.task-decomposition) | Task Decomposition & Technical Deep-Dive |
+| [`plan.6.full-plan-review`](#plan.6.full-plan-review) | Full Plan Review |
+| [`plan.7.output-generation`](#plan.7.output-generation) | Output Generation |
+| [`plan.8.batch-jira-creation`](#plan.8.batch-jira-creation) | Batch JIRA Creation |
 
 ---
 

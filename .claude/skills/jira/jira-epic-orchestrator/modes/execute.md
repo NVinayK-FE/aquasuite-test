@@ -44,23 +44,17 @@ Execute an existing JIRA epic by implementing all pending stories and tasks. Thi
 - Update JIRA statuses as work progresses
 - One story at a time, with full user confirmation
 
-## Section IDs
+## Contents
 
-**Prefix:** `exe`
+Jump to a stage directly via the links below. When starting each stage, display the section ID in the form `▶ [exe.N.name] — Stage title`. The `exe.` prefix is used throughout.
 
-When starting each stage, display the section ID:
-
-```
-▶ [exe.N.name] — Stage title
-```
-
-| ID | Stage |
-|---|---|
-| `exe.1.load-epic-context` | Load Epic Context |
-| `exe.2.story-execution` | Story-by-Story Execution |
-| `exe.3.git-commit` | Git Commit (Per Story) |
-| `exe.4.next-story` | Next Story |
-| `exe.5.epic-completion` | Epic Completion |
+| ID | Stage | Main protocols used |
+|---|---|---|
+| [`exe.1.load-epic-context`](#exe.1.load-epic-context) | Load Epic Context | human-confirmation |
+| [`exe.2.story-execution`](#exe.2.story-execution) | Story-by-Story Execution | spec-first, flow, implementation, human-confirmation |
+| [`exe.3.git-commit`](#exe.3.git-commit) | Git Commit (Per Story) | git-workflow (Level 2) |
+| [`exe.4.next-story`](#exe.4.next-story) | Next Story | human-confirmation |
+| [`exe.5.epic-completion`](#exe.5.epic-completion) | Epic Completion | human-confirmation |
 
 ---
 
