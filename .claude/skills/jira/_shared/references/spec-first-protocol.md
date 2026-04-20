@@ -3,8 +3,24 @@
 <!-- ============================================================
      SHARED PROTOCOL: Spec-First Execution
      ============================================================
-     Used by: jira-executor, jira-batch-executor, jira-epic-orchestrator (execute modes)
-     
+     Used by: jira-executor only (invoked from its Step 3).
+              Upstream orchestrators (jira-batch-executor,
+              jira-story-executor, jira-epic-orchestrator,
+              jira-bug-executor) never run this protocol directly —
+              they delegate per-ticket execution to jira-executor,
+              which in turn runs this protocol once per ticket.
+
+     Scope: audits only the current repository's .spec/ tree. Cross-
+     project batches need one spec-first pass per repo — see
+     jira-batch-executor's "Cross-project spec caveat" for warnings.
+
+     Ordering note: as of the current jira-executor flow, this
+     protocol runs AFTER the dev-flows generation step (code-to-
+     phrase / code-to-sentence produced in jira-executor Step 2).
+     The phrase list is the authoritative scope of the change —
+     this protocol verifies that the specs needed to support those
+     phrases exist and are complete.
+
      Purpose: Before implementing ANY ticket/task, perform a deep
      spec audit at BOTH file AND section level. Identify every
      missing spec file, missing section, and incomplete section

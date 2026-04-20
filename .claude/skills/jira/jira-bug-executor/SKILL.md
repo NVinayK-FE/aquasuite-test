@@ -3,25 +3,39 @@ name: jira-bug-executor
 description: >
   Use this skill for any JIRA Bug ticket — whenever the user says "start
   jira-bug-executor", "fix bug", "debug ticket", or when the router dispatches
-  a Bug issue. Bugs need a root-cause pass before code changes, otherwise fixes
-  tend to paper over the real problem; this skill reproduces the issue, traces
-  the cause, confirms the diagnosis with the user, then implements the fix.
-  Prefer this over jira-executor whenever the ticket type is Bug. Avoid scanning
-  unrelated project files until Step 3 asks for it, so the investigation stays
-  focused.
+  a Bug issue. This skill owns the **analysis phase only**: reproduce, trace
+  the root cause, confirm the diagnosis with the user, and write the agreed
+  analysis back into the JIRA ticket description. It does NOT implement the
+  fix. Once the user confirms the diagnosis and the ticket description is
+  updated, this skill hands off to `jira-executor`, which performs the actual
+  code changes, specs, commits, and JIRA status updates. Prefer this over
+  calling `jira-executor` directly whenever the ticket type is Bug, because
+  bugs need a root-cause pass before any code is written.
 ---
 
 # JIRA Bug Executor
 
-Guide the user through investigating and fixing a JIRA bug ticket step by step. Every step requires explicit human confirmation before proceeding. Never skip steps or combine them.
+Guide the user through **analysing** a JIRA bug ticket step by step, then **hand off the implementation to `jira-executor`**. Every step requires explicit human confirmation before proceeding.
 
-**Key difference from jira-executor:** Bugs require investigation before implementation. Steps 3–5 are a dedicated root-cause analysis phase that must be confirmed by the user before any code is written.
+**Scope boundary — read this first.** This skill is responsible for:
 
-**Shared Protocols:** This skill references reusable protocols in `.claude/skills/jira/_shared/references/`. Read the relevant protocol file when a step says "follow [protocol-name]".
+1. Understanding the bug from the ticket.
+2. Reproducing the issue and tracing the root cause.
+3. Getting explicit user confirmation of the diagnosis.
+4. Writing the confirmed diagnosis back into the ticket description so the fix-time executor (and any reviewer) has a single, authoritative analysis record.
+5. Handing off to `jira-executor` to actually implement the fix.
 
-- `human-confirmation-protocol.md` — Enhanced confirmation patterns (all steps)
-- `spec-first-protocol.md` — Verify .spec coverage before implementation (Step 6)
-- `git-workflow.md` — Git operations (Step 9, Level 1)
+**This skill does NOT:** transition status to "In Progress", create specs, produce code-to-phrase / code-to-sentence, present implementation plans, edit code files, run git, or post the final JIRA summary comment. Those all happen inside `jira-executor` during the handoff.
+
+## Per-skill rule — Remember answers for the session {#bug.remember}
+
+Every `AskUserQuestion` prompt raised by this skill MUST follow the Human Confirmation Protocol's **Remember Answer for the Session** rule (see `.claude/skills/jira/_shared/references/human-confirmation-protocol.md` — section [`hcp.8.remember-answer`]).
+
+Concretely:
+
+- Every non-destructive question offers a "Remember this answer for the session" variant (Pattern A — sibling option, or Pattern B — single toggle), so the user is never asked the same thing twice in a session.
+- When a remembered choice is in effect, print a one-line note (`▸ Using remembered choice for <prompt topic>: <value>`) and skip the question.
+- Destructive actions (see `hcp.6.destructive-pattern`) are **never** remembered. The analysis-block description update in Step 5 and the handoff trigger in Step 6 are treated as destructive (they write to the ticket and transfer control) — they are always re-asked.
 
 ## Section IDs
 
@@ -30,25 +44,21 @@ Guide the user through investigating and fixing a JIRA bug ticket step by step. 
 When starting each step, display the section ID:
 
 ```
-▶ [bug.N.name] — Step title
+▶ [bug.step-N.name] — Step title
 ```
 
 | ID | Step |
 |---|---|
-| `bug.1.fetch-understand` | Fetch and present bug understanding |
-| `bug.2.transition-progress` | Transition ticket to In Progress |
-| `bug.3.reproduce` | Reproduce the issue |
-| `bug.4.root-cause` | Trace root cause |
-| `bug.5.confirm-diagnosis` | Confirm diagnosis with user |
-| `bug.6.spec-first-check` | Spec-First Check |
-| `bug.7.fix-plan` | Present fix plan |
-| `bug.8.implement-fix` | Implement the fix |
-| `bug.9.git-workflow` | Git workflow (separate commits) |
-| `bug.10.jira-update` | Final feedback and JIRA update |
+| `bug.step-1.fetch-understand` | Fetch and present bug understanding |
+| `bug.step-2.reproduce` | Reproduce the issue |
+| `bug.step-3.root-cause` | Trace root cause |
+| `bug.step-4.confirm-diagnosis` | Confirm diagnosis with user |
+| `bug.step-5.update-ticket-description` | Write analysis back into the ticket description |
+| `bug.step-6.handoff-to-executor` | Hand off to `jira-executor` for implementation |
 
 ## Flow
 
-### Step 1 — Fetch and present bug understanding {#bug.1.fetch-understand}
+### Step 1 — Fetch and present bug understanding {#bug.step-1.fetch-understand}
 
 Fetch the JIRA ticket using the `getJiraIssue` MCP tool. Read the ticket summary, description, steps to reproduce, expected behaviour, actual behaviour, and any acceptance criteria thoroughly.
 
@@ -80,9 +90,9 @@ Acceptance Criteria (for the fix):
 - ...
 ```
 
-If the ticket description is missing steps to reproduce, expected/actual behaviour, or other critical details, flag this explicitly and ask the user to fill in the gaps.
+If the ticket description is missing steps to reproduce, expected/actual behaviour, or other critical details, flag this explicitly and ask the user to fill in the gaps before proceeding.
 
-Then use `AskUserQuestion` to confirm:
+Then use `AskUserQuestion` to confirm (per `bug.remember` — include a remember variant):
 
 - **Yes, that's correct** — Your understanding is accurate, proceed
 - **Partially correct, let me clarify** — Some parts need correction
@@ -90,11 +100,7 @@ Then use `AskUserQuestion` to confirm:
 
 If the user selects **"Partially correct"** or **"add more context"**, collect their input, update your understanding, and present it again. Repeat until confirmed.
 
-### Step 2 — Transition ticket to In Progress {#bug.2.transition-progress}
-
-Once the user confirms your understanding, transition the JIRA ticket status to **In Progress** using the `transitionJiraIssue` MCP tool. Inform the user that the ticket is now in progress.
-
-### Step 3 — Reproduce the issue {#bug.3.reproduce}
+### Step 2 — Reproduce the issue {#bug.step-2.reproduce}
 
 Before investigating the root cause, attempt to reproduce the issue:
 
@@ -125,7 +131,7 @@ Then use `AskUserQuestion` to confirm:
 - **Not quite, let me clarify** — The bug manifests differently than described
 - **I can provide more clues** — I have additional debugging info
 
-### Step 4 — Trace root cause {#bug.4.root-cause}
+### Step 3 — Trace root cause {#bug.step-3.root-cause}
 
 Now dig deeper to identify the root cause. This is the critical investigation step:
 
@@ -143,15 +149,12 @@ Defect Location:
 - [file:line] — [description of the defect]
 
 Root Cause:
-[Clear explanation of WHY the bug happens — not just what is wrong, 
-but the underlying reason. E.g., "The function assumes the array is 
-never empty, but when no items match the filter, it passes an empty 
-array which causes the indexOf call on line 42 to return -1, and 
-the subsequent slice(-1) returns the last element instead of nothing."]
+[Clear explanation of WHY the bug happens — not just what is wrong,
+but the underlying reason.]
 
 How It Was Introduced:
-[If determinable — e.g., "This edge case was not handled in the 
-original implementation" or "Regression from commit abc123 which 
+[If determinable — e.g., "This edge case was not handled in the
+original implementation" or "Regression from commit abc123 which
 changed the filter logic"]
 
 Blast Radius:
@@ -165,183 +168,103 @@ Then use `AskUserQuestion` to confirm:
 - **Close but not exactly** — The root cause is slightly different
 - **No, that's wrong** — Let me point you in the right direction
 
-If the user corrects or redirects, re-investigate and present the updated analysis. **Do NOT proceed to implementation until the user confirms the root cause.**
+If the user corrects or redirects, re-investigate and present the updated analysis. **Do NOT proceed until the user confirms the root cause.**
 
-### Step 5 — Confirm diagnosis with user {#bug.5.confirm-diagnosis}
+### Step 4 — Confirm diagnosis with user {#bug.step-4.confirm-diagnosis}
 
 Present a consolidated diagnosis summary and the proposed fix approach (high level, not code yet):
 
 ```
 Confirmed Diagnosis:
 
-Bug:         [one-line summary of what's broken]
-Root Cause:  [one-line summary of why]
-Fix Approach: [high-level description of the fix — e.g., "Add a null check 
-              before accessing the property" or "Change the query to use 
-              LEFT JOIN instead of INNER JOIN"]
+Bug:          [one-line summary of what's broken]
+Root Cause:   [one-line summary of why]
+Fix Approach: [high-level description of the fix — e.g., "Add a null check
+               before accessing the property" or "Change the query to use
+               LEFT JOIN instead of INNER JOIN"]
 Blast Radius: [isolated / moderate / wide — with brief explanation]
 ```
 
 Then use `AskUserQuestion`:
 
-- **Yes, proceed with fix** — Diagnosis confirmed, move to implementation
+- **Yes, proceed** — Diagnosis confirmed; record it on the ticket and hand off
 - **I want to adjust the approach** — The diagnosis is right but I want a different fix strategy
 - **Go back and investigate more** — I'm not confident in this diagnosis yet
 
-### Step 6 — Spec-First Check {#bug.6.spec-first-check}
+If the user selects "adjust the approach", iterate on the Fix Approach line and re-ask. If they select "investigate more", loop back to Step 2 or Step 3 as appropriate. **Only advance to Step 5 once the user explicitly confirms "Yes, proceed".**
 
-**Follow the Spec-First Protocol** in `.claude/skills/jira/_shared/references/spec-first-protocol.md`.
+### Step 5 — Write analysis back into the ticket description {#bug.step-5.update-ticket-description}
 
-Before writing any code, verify that all `.spec` files and sections required for this fix exist. If the bug reveals a gap in the specs (e.g., an undocumented edge case), this is the time to fill it:
+Once the diagnosis is confirmed, update the JIRA ticket description so the analysis lives on the ticket itself. This makes the ticket the single source of truth before `jira-executor` takes over.
 
-1. Present what's missing to the user
-2. Interactively gather the spec details
-3. Create the `.spec` file/section
-4. Register it in root `CLAUDE.md` under Registered Specs
-5. Confirm with the user before proceeding
+**Resolve the confirming user's display name.** Before building the analysis block, call the `atlassianUserInfo` MCP tool to fetch the current Atlassian user and use their `displayName` as the **Confirmed with reporter** attribution. If `atlassianUserInfo` is unavailable or returns no usable name, fall back to the ticket's Reporter field (from the `getJiraIssue` response) and, failing that, use the literal string `current user`. Cache the resolved name for the remainder of this skill invocation — do not look it up twice.
 
-Only after all required specs are in place, move to the next step.
-
-### Step 7 — Present fix plan {#bug.7.fix-plan}
-
-Based on the confirmed diagnosis and the spec sections, present a concrete fix plan. The plan should include both the fix itself AND any tests to prevent regression:
+Build the updated description by **appending** a clearly-delimited analysis block to the existing description (do not replace the original content — preserve the original reporter text above the block):
 
 ```
-Fix Plan:
+---
+## Analysis (added by jira-bug-executor on [ISO-8601 timestamp])
 
-1. [File path — modified]
-   Action: [modify]
-   Fix: [what specifically changes and why]
-   
-   Code snippet:
-   [show the key code changes — before and after]
+**Bug:** [one-line summary of what's broken]
 
-2. [Test file path — new/modified]
-   Action: [create / modify]
-   Test: [what scenario this test covers to prevent regression]
-   
-   Code snippet:
-   [show the test code]
+**Reproduction:**
+[Copy the reproduction analysis from Step 2 — affected area, execution path, test coverage gaps]
 
-...
+**Root Cause:** [one-line summary of why]
+Full detail:
+[Copy the root-cause analysis from Step 3 — defect location, root cause, how it was introduced]
+
+**Fix Approach:** [high-level description of the fix agreed with the user]
+
+**Blast Radius:** [isolated / moderate / wide, with brief explanation]
+
+**Confirmed with reporter:** yes ([resolved display name] via jira-bug-executor)
+---
 ```
 
-Then use `AskUserQuestion` to confirm:
+The `[resolved display name]` placeholder MUST be replaced by the real name returned from the resolution step above — never leave the literal string `[user]`, `[resolved display name]`, or any other placeholder in the block that gets written to JIRA.
 
-- **Yes, proceed** — Looks good, start implementing the fix
-- **No, let me adjust** — I want to change the approach
-- **Looks good but I want to add more details** — Additional constraints before proceeding
+Before calling the API, show the exact new description block to the user and use `AskUserQuestion`.
 
-If the user adjusts or adds details, revise the plan and present again. Repeat until confirmed.
+**Destructive pattern:** this is a destructive write to the JIRA ticket. Per `hcp.6.destructive-pattern`, the question is **always asked** and never carries a "Remember for session" variant — even if the user has been breezing through earlier prompts.
 
-### Step 8 — Implement the fix {#bug.8.implement-fix}
+- **Yes, update the ticket** — Save the analysis to the ticket description
+- **Let me tweak the wording** — I want to adjust the analysis text before it's saved
+- **Skip the description update** — Hand off to `jira-executor` without updating the description
 
-Only after the user confirms the fix plan, execute the actual code changes. Follow the plan exactly as confirmed. Do not deviate without asking.
+If the user chooses to tweak, accept their edits and re-present for confirmation. If they choose to skip, note that the description was not updated and proceed to Step 6.
 
-After implementation is complete, present a summary:
+If the user confirms, call `editJiraIssue` with the combined description (original body + the analysis block) to save the change. Confirm back to the user that the ticket has been updated.
 
-```
-Fix Complete:
+Do **NOT** transition the ticket status here — the transition to "In Progress" happens inside `jira-executor` after its Step 7 (Transition to In Progress), per that skill's own rules.
 
-Files changed:
-- [file path] — [what was fixed]
-- [file path] — [test added/updated]
+### Step 6 — Hand off to `jira-executor` {#bug.step-6.handoff-to-executor}
 
-Root Cause Addressed:
-✅ [description of the defect] — [how it was fixed]
+The analysis phase is complete. Hand off the ticket to `jira-executor` for the actual fix, specs, commits, and JIRA comment update.
 
-Regression Tests:
-✅ [test name] — [what it verifies]
-
-Acceptance Criteria Check:
-✅ [criterion 1] — [how it was met]
-✅ [criterion 2] — [how it was met]
-```
-
-Then use `AskUserQuestion`:
-
-- **Yes, looks good** — I'm satisfied with the fix
-- **No, something needs fixing** — I see an issue that needs correction
-- **Run it again with modifications** — I want to adjust and re-implement
-
-### Step 9 — Git workflow {#bug.9.git-workflow}
-
-**Follow the Git Workflow Protocol (Level 1 — Basic)** in `.claude/skills/jira/_shared/references/git-workflow.md`.
-
-<!-- ============================================================
-     SEPARATE COMMIT PROTOCOL
-     ============================================================
-     When a bug fix involves changes to multiple categories of files
-     (spec files, fix code, tests), commit each category separately.
-     This keeps the git history clean and makes it easy to review
-     changes by concern.
-     
-     Commit order:
-       1. Spec files (.spec/)     — if created/updated
-       2. Bug fix code            — the actual fix
-       3. Tests                   — regression tests
-     ============================================================ -->
-
-Before committing, categorize all changed files:
+Announce the handoff to the user:
 
 ```
-Changed Files Summary:
+▶ [bug.step-6.handoff-to-executor] — Handing off to jira-executor
 
-Spec files (.spec/):
-- [file] — [created/updated]
-
-Bug fix code:
-- [file] — [what was fixed]
-
-Tests:
-- [file] — [created/updated]
+Analysis recorded on [KEY]. Starting `jira-executor` now — it will:
+  • Fetch the ticket (now including the analysis block)
+  • Auto-confirm the ticket understanding from the analysis block
+  • Produce the Dev Flows (code-to-phrase / code-to-sentence) for the fix
+  • Run the Spec-First Check against .spec/dev/
+  • Present an implementation plan — every step tied 1:1 to a phrase
+  • Implement the fix strictly per the phrase list (no extra files / tests / refactors)
+  • Transition the ticket to In Progress once the code is ready
+  • Commit and post the final JIRA update
 ```
 
-**Commit each category separately, in this order:**
+Then **read `.claude/skills/jira/jira-executor/SKILL.md` and begin executing its flow from Step 1**, passing the same ticket key. From here on, `jira-executor` is in control.
 
-1. **Spec files first** (if any were created/updated):
-   - Commit message: `[KEY]: Add/Update spec — [brief description]`
-   
-2. **Bug fix code second:**
-   - Commit message: `[KEY]: Fix — [root cause summary]`
+Do not repeat the ticket understanding, spec check, plan, or code steps inside this skill — that is exactly what `jira-executor` is for, and duplicating them would fork the execution path that the project is trying to keep single.
 
-3. **Tests last** (if any were created/updated):
-   - Commit message: `[KEY]: Add regression test — [what it covers]`
+## Important Principles
 
-For each commit, use `AskUserQuestion`:
-
-- **Yes, commit and push** — Commit and push the changes to remote
-- **Commit only, don't push** — Save locally but don't push
-- **No, skip git** — Leave changes uncommitted
-
-If only one category has changes, just do a single commit.
-
-### Step 10 — Final feedback and JIRA update {#bug.10.jira-update}
-
-Regardless of the git decision, provide a final summary:
-
-```
-Final Summary:
-
-Ticket:      [KEY] — [Summary]
-Status:      In Progress
-Root Cause:  [one-line summary]
-Fix:         [one-line summary of what was changed]
-Tests:       [added/updated/none]
-Specs:       [created/updated/none]
-Git:         [N commits — committed/pushed/none]
-Blast Radius: [isolated/moderate/wide]
-Notes:       [any observations, risks, or follow-up items]
-```
-
-Then update the JIRA ticket:
-
-1. **Add a comment** to the ticket with the root-cause analysis and fix summary using the `addCommentToJiraIssue` MCP tool. Include the root cause, what was fixed, and what tests were added.
-2. If there are related areas that should be checked or follow-up tickets that should be created, add those as a separate comment.
-3. Do **NOT** transition the ticket to "Done" — leave it in "In Progress" for human review. Only the human decides when a ticket is Done.
-
-Use `AskUserQuestion` for final wrap-up:
-
-- **Done, that's all** — End the session
-- **I want to add a note to the ticket** — I have additional observations to record
-- **Start another ticket** — I want to execute another ticket next
+- **Analysis here, implementation in `jira-executor`.** This skill's job ends once the ticket description carries the agreed analysis.
+- **Never write code in this skill.** The temptation is to apply a small fix inline after diagnosis. Don't — route through `jira-executor` so every bug fix follows the same implementation discipline as every other ticket.
+- **The ticket description is the handoff contract.** Because the analysis lives on the ticket, `jira-executor`'s Step 1 fast-path detects the `## Analysis (added by jira-bug-executor on ...)` block and auto-confirms the understanding — no out-of-band context passing is needed.
+- **Always confirm before acting.** No description edits and no handoff without explicit user approval. Destructive prompts (Step 5) never carry a remember-for-session option.

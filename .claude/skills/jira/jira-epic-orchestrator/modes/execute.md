@@ -3,491 +3,337 @@
      ============================================================
      Trigger: execute epic <EPIC-KEY>
      Example: execute epic ACD-5
-     
-     Purpose: Execute an existing epic by implementing all pending
-     stories and tasks one by one. Each story follows a complete
-     workflow: Spec-First check, Flow detection, task-by-task
-     implementation, separate commits, and JIRA updates.
-     
+
+     Purpose: Execute an existing epic by iterating pending child
+     tickets and DELEGATING each one to the appropriate executor.
+
+     This mode is a THIN ORCHESTRATOR. It never reimplements
+     understand → dev-flows → spec-first → plan → implement →
+     commit → jira-update. All of that lives in `jira-executor`.
+
+     Per-child routing:
+       - Story   → read jira-story-executor/SKILL.md and hand off
+                   (which itself delegates each subtask to
+                   jira-executor).
+       - Task    → read jira-executor/SKILL.md and hand off directly.
+       - Bug     → read jira-bug-executor/SKILL.md and hand off
+                   (analysis → description update → jira-executor).
+       - Subtask (rare at epic level) → same as Task.
+
      This mode implements ONLY pending/unfinished work. Already
-     Done tickets are skipped.
-     
-     5 Stages:
-       1. Load Epic Context — Fetch epic, stories, tasks, spec file
-       2. Story-by-Story Execution — Spec-first → Flow → Tasks
-       3. Git Commit per Story — Separate commits (spec, flow, code)
-       4. Next Story — Ask to continue/stop
-       5. Epic Completion — When all done, close epic and summarize
-     
-     Shared Protocols Used:
-       - spec-first-protocol.md — Before each story
-       - flow-protocol.md — Flow detection per task
-       - implementation-protocol.md — Per-task execution
-       - human-confirmation-protocol.md — All user confirmations
-       - git-workflow.md Level 2 — Commit per story
+     Done children are skipped.
+
+     4 Stages:
+       1. Load Epic Context — Fetch epic, children, pending list
+       2. Child-by-Child Execution — Delegate to the right skill
+       3. Next Child — Continue / stop / revisit
+       4. Epic Completion — Close the epic and summarize
      ============================================================ -->
 
 # Mode 3 — Execute Epic
 
 **Trigger:** `execute epic <EPIC-KEY>` (e.g., `execute epic ACD-5`)
 
-Execute an existing JIRA epic by implementing all pending stories and tasks. This mode runs a complete spec-first, flow-aware, commit-per-story workflow.
-
-**Project:** ACD (Aqua Claude Dev)
+Execute an existing JIRA epic by iterating its pending child tickets and **delegating each one** to the correct downstream executor. This mode only handles epic-level orchestration — every per-ticket step (understanding, dev flows, spec-first, planning, coding, transitions, commits, JIRA updates) is handled by `jira-executor` (directly for Tasks, via `jira-story-executor` for Stories, via `jira-bug-executor` for Bugs).
 
 **Key Principles:**
 
-- Only implement pending/unfinished tickets — skip Done items
-- Spec-first before any implementation
-- Detect and document user flows per task
-- Commit separately: spec → flow → code
-- Update JIRA statuses as work progresses
-- One story at a time, with full user confirmation
+- Only implement pending/unfinished tickets — skip Done items.
+- All per-ticket execution runs through `jira-executor` — no duplication here.
+- Stories are handed to `jira-story-executor`, which iterates its own subtasks and delegates each subtask to `jira-executor`.
+- Bugs are handed to `jira-bug-executor`, which runs the analysis + description-update and then hands off to `jira-executor`.
+- One child at a time, with full user confirmation between children.
+- The epic transitions to **In Progress** when the first child starts work (not when the last one finishes).
+- The epic-level wrap-up comment aggregates per-child JIRA comment URLs — it is a pointer index, not a retelling of each child's implementation log.
+
+## Per-mode rule — Remember answers for the session {#exe.remember}
+
+Every `AskUserQuestion` prompt raised by this mode MUST follow the Human Confirmation Protocol's **Remember Answer for the Session** rule (see `.claude/skills/jira/_shared/references/human-confirmation-protocol.md` — section [`hcp.8.remember-answer`]).
+
+Concretely:
+
+- The between-children "Continue / Pause" prompt (Stage 3) offers a remember variant so the user can lock in "always continue" for the rest of the epic execution.
+- The Stage 1 queue confirmation is typically asked once and is not remembered, but any prompt that repeats across children must offer a remember variant.
+- Destructive actions (Epic → Done transition, epic-level push if any) are **never** remembered — they are always re-asked per `hcp.6.destructive-pattern`.
+- Downstream skills (`jira-executor`, `jira-story-executor`, `jira-bug-executor`) retain their own `hcp.8` handling for their own prompts.
 
 ## Contents
 
-Jump to a stage directly via the links below. When starting each stage, display the section ID in the form `▶ [exe.N.name] — Stage title`. The `exe.` prefix is used throughout.
+When starting each stage, display the section ID in the form `▶ [exe.N.name] — Stage title`. The `exe.` prefix is used throughout.
 
-| ID | Stage | Main protocols used |
-|---|---|---|
-| [`exe.1.load-epic-context`](#exe.1.load-epic-context) | Load Epic Context | human-confirmation |
-| [`exe.2.story-execution`](#exe.2.story-execution) | Story-by-Story Execution | spec-first, flow, implementation, human-confirmation |
-| [`exe.3.git-commit`](#exe.3.git-commit) | Git Commit (Per Story) | git-workflow (Level 2) |
-| [`exe.4.next-story`](#exe.4.next-story) | Next Story | human-confirmation |
-| [`exe.5.epic-completion`](#exe.5.epic-completion) | Epic Completion | human-confirmation |
+| ID | Stage |
+|---|---|
+| [`exe.1.load-epic-context`](#exe.1.load-epic-context) | Load Epic Context |
+| [`exe.2.child-execution`](#exe.2.child-execution) | Child-by-Child Execution (delegated) |
+| [`exe.3.next-child`](#exe.3.next-child) | Next Child |
+| [`exe.4.epic-completion`](#exe.4.epic-completion) | Epic Completion |
+
+## Principle — Single Execution Path {#exe.principle}
+
+`execute.md` does NOT reimplement per-ticket work. It only:
+
+1. Loads the epic and its children.
+2. Filters to pending children.
+3. For each pending child, announces the handoff and reads the appropriate skill file:
+   - **Story** → `.claude/skills/jira/jira-story-executor/SKILL.md`
+   - **Task / Subtask** → `.claude/skills/jira/jira-executor/SKILL.md`
+   - **Bug** → `.claude/skills/jira/jira-bug-executor/SKILL.md`
+4. Begins that skill's flow from Step 1, passing the child ticket key.
+5. After the child returns, prompts the user to continue / stop / revisit.
+6. When all pending children are done (or user stops), closes the epic with a final comment and transition.
+
+All implementation, spec-first, dev flows, plans, code, In-Progress transitions, git commits, and per-ticket JIRA updates happen inside the delegated skill(s) — never inline here.
 
 ---
 
 ## Stage 1 — Load Epic Context {#exe.1.load-epic-context}
 
-### Step 1.1 — Fetch Epic and Child Issues
+### Step 1.1 — Fetch Epic and Children
 
-Use `getJiraIssue` to fetch the epic by the provided key. Then fetch all child stories and tasks using `searchJiraIssuesUsingJql` or by reading issue links.
+Use `getJiraIssue` to fetch the epic by the provided key. Fetch all child issues using `searchJiraIssuesUsingJql`:
 
-Extract:
-- Epic key, title, description
-- All child stories (status, summary, acceptance criteria)
-- All child tasks (status, summary, parent story)
-- Epic current status and assignee
+```
+JQL: "Epic Link" = <EPIC-KEY> ORDER BY rank ASC
+```
 
-### Step 1.2 — Load Spec File
+(Adjust to the Jira instance's parent-link field if necessary — `parent = <EPIC-KEY>` also works on modern Jira cloud.)
 
-Look for the epic's spec file:
+Extract for each child:
 
-- If epic type is **Epic** → search `.spec/epics/<name>.md`
-- If epic type is **Initiative** → search `.spec/initiatives/<name>.md`
+- Key, issue type (Story / Task / Subtask / Bug), summary, status, priority
 
-If found, read the file. If not found, note it and proceed.
+### Step 1.2 — Filter to Pending Children
 
-### Step 1.3 — Filter to Pending Only
-
-From all child stories and tasks, identify which are pending (status != Done).
+Remove children with status = Done.
 
 Present the overview:
 
 ```
-Epic:        [KEY] — [Title]
-Current Status: [Status]
+▶ [exe.1.load-epic-context] — Load Epic Context
 
-Pending work:
-  Stories:   [count] unfinished
-  Tasks:     [count] unfinished total
-  
-Spec file:   [Found / Not Found]
-  Location:  [.spec/epics/... or .spec/initiatives/...]
-  
-Ready to start implementation?
+═══════════════════════════════════════════════════════
+EPIC: [KEY] — [Title]
+═══════════════════════════════════════════════════════
+
+Type:        Epic
+Status:      [Current Status]
+
+Pending children: [pending] of [total]
+
+ #  | Key       | Type    | Priority | Status  | Summary                 | Routed via
+────┼───────────┼─────────┼──────────┼─────────┼─────────────────────────┼────────────────────────────
+ 1  | ACD-11    | Story   | High     | To Do   | Build signup flow       | jira-story-executor → jira-executor
+ 2  | ACD-12    | Task    | Medium   | To Do   | Add Postgres migration  | jira-executor
+ 3  | ACD-13    | Bug     | High     | Open    | Fix session expiry      | jira-bug-executor → jira-executor
+ ...
+
+═══════════════════════════════════════════════════════
+
+Execution plan: each pending child is handed to the right downstream
+skill one at a time. All per-ticket work (spec-first, dev flows,
+implementation, commits, JIRA updates) happens inside those skills —
+this orchestrator only iterates.
 ```
 
 Use `AskUserQuestion`:
 
-- **Yes, let's start** — Begin with the first pending story
-- **No, I want to review the plan first** — Show the full pending list with details
-- **Add more context first** — Provide additional notes about the epic before starting
+- **Yes, start executing** — Begin with the first pending child
+- **Review first** — Show full description of each pending child, then re-ask
+- **Re-order children** — Change the execution order
+- **Cancel** — Stop the epic executor
 
-If user wants to review, list all pending stories with their tasks and brief summaries.
-
-Then repeat the question above.
+If reordering, update the in-memory queue and re-present.
 
 ---
 
-## Stage 2 — Story-by-Story Execution {#exe.2.story-execution}
+## Stage 2 — Child-by-Child Execution (delegated) {#exe.2.child-execution}
 
-For each pending story (in order):
+### Step 2.0 — Transition Epic to In Progress (once)
 
-### Step 2.1 — Transition Story to In Progress
+Before starting the **first** pending child of this session, transition the parent Epic to **In Progress** via `transitionJiraIssue` if it is not already In Progress or Done. This ensures the epic's own status reflects that real work is underway, without waiting for the final child to close. Skip this step on subsequent iterations of the Stage 2 loop.
 
-Use `transitionJiraIssue` to move the story from its current status to **In Progress**. Inform the user:
+**Destructive pattern applies** (status change on the epic) — always announce the transition; do not remember the decision across sessions.
 
-```
-[STORY-KEY]: Now In Progress
-```
+For each pending child in the queue, in order:
 
-### Step 2.2 — Run Spec-First Protocol
-
-**Read and follow `.claude/skills/jira/_shared/references/spec-first-protocol.md`.**
-
-Apply the Spec-First Protocol for this story:
-
-1. Identify required specs (database, API, architecture, naming conventions, business rules)
-2. Scan existing `.spec/` files
-3. Present findings (what's covered, what's missing)
-4. If missing specs, ask user whether to create them or skip
-5. Create missing specs if user agrees
-6. Confirm all specs are ready
-
-After spec coverage is confirmed, proceed to next step.
-
-### Step 2.3 — Run Flow Detection (Flow-Aware Task Check)
-
-Analyze the story's pending tasks to detect if any involve a **user-facing flow or workflow**.
-
-Use the first section of `.claude/skills/jira/_shared/references/flow-protocol.md` (Step 1 — Flow Detection):
-
-Look for keywords in the story and task descriptions:
-- "flow", "workflow", "process", "journey", "scenario"
-- User actions: login, register, logout, forgot-password, checkout, payment, subscription, onboarding, etc.
-- Multi-step transactions or wizard-like experiences
-
-**Present detection:**
+### Step 2.1 — Announce the handoff
 
 ```
-Flow Detection:
+═══════════════════════════════════════════════════════
+CHILD [current] of [total]: [KEY] — [Summary]
+═══════════════════════════════════════════════════════
 
-Analyzing story [KEY] and its tasks for user flows...
+▶ [exe.2.child-execution] — Handing [KEY] to [skill]
 
-[Summary of findings: "This story involves a user registration flow with password reset recovery" or "No user flows detected in this story"]
+Type:         [Story / Task / Subtask / Bug]
+Routed via:   [jira-story-executor → jira-executor
+               | jira-executor
+               | jira-bug-executor → jira-executor]
 ```
 
-Use `AskUserQuestion`:
+### Step 2.2 — Delegate to the appropriate skill
 
-- **Yes, create flow documentation** — Proceed with flow protocol for this story
-- **No, skip flow docs** — Continue without flow documentation
-- **I want to add more context about this flow** — User provides additional details before proceeding
+Based on the child's issue type:
 
-If user wants to add context, gather it, then ask again:
+- **Story** — **Read `.claude/skills/jira/jira-story-executor/SKILL.md` and begin executing its flow from Step 1**, passing the story key. That skill loads the story's subtasks and hands each one to `jira-executor` in turn.
 
-- **Now create the documentation** — Proceed with flow protocol
-- **Actually, skip it** — Move to task implementation without flow docs
+- **Task / Subtask** — **Read `.claude/skills/jira/jira-executor/SKILL.md` and begin executing its flow from Step 1**, passing the ticket key. `jira-executor` runs the full per-ticket flow (understand → dev-flows → spec-first → plan → implement → transition → commit → jira update).
 
-**If creating flow documentation:**
+- **Bug** — **Read `.claude/skills/jira/jira-bug-executor/SKILL.md` and begin executing its flow from Step 1**, passing the ticket key. The bug executor runs its analysis flow, gets user confirmation, writes the analysis back to the ticket description, and then hands off to `jira-executor` for the actual fix.
 
-Follow `.claude/skills/jira/_shared/references/flow-protocol.md` fully (Steps 2-7). This generates:
+Do **not** repeat any understanding, spec-first, planning, coding, commit, or JIRA-comment logic inside this mode — that is exactly what the delegated skill exists for.
 
-- `.flows/<module>/<flow-name>/flow.md` — Complete flow with all scenarios
-- `.flows/<module>/<flow-name>/e2e.yaml` — E2E test scenarios
-- `.flows/<module>/<flow-name>/unit.yaml` — Unit test specs
+### Step 2.3 — After delegation returns
 
-After flow files are generated and confirmed, return to this step.
-
-### Step 2.4 — Execute Each Pending Task
-
-For each pending task in the story (in order):
-
-#### 2.4a — Present Task Understanding
-
-Fetch the task and present your understanding:
-
-```
-Task:     [TASK-KEY] — [Summary]
-Type:     [Issue Type]
-Priority: [Priority]
-Status:   [Current Status]
-
-My Understanding:
-[Rephrase what the task requires — what, why, expected outcome]
-
-From Story Plan:
-[Technical specs from the epic's spec file or description]
-
-Implementation Approach:
-[How you plan to implement this based on specs and story context]
-
-Acceptance Criteria:
-- [criterion 1]
-- [criterion 2]
-```
-
-Confirm using **Human Confirmation Protocol** (see `human-confirmation-protocol.md`):
-
-Use `AskUserQuestion`:
-
-- **Yes, let's implement this** — Proceed with implementation
-- **Partially correct, let me clarify** — Some parts need correction
-- **I want to add more context** — Additional details to include before implementing
-- **Skip this task for now** — Move to next task without implementing
-
-If user provides clarification or context, update your understanding and ask again.
-
-If user wants to skip, note it and move to next task in the story.
-
-#### 2.4b — Implement the Task
-
-Transition the task to **In Progress** using `transitionJiraIssue`.
-
-**Read and follow `.claude/skills/jira/_shared/references/implementation-protocol.md` steps 3-5:**
-
-- Step 3 — Spec-First Check (verify all required specs are available)
-- Step 4 — Present Implementation Plan (file changes, code snippets)
-- Step 5 — Implement (execute code changes)
-
-Present the implementation results:
-
-```
-Implementation Complete:
-
-Files changed:
-- [file path] — [what was done]
-- [file path] — [what was done]
-
-Acceptance Criteria Check:
-✅ [criterion 1] — [how met]
-✅ [criterion 2] — [how met]
-```
-
-Confirm:
-
-Use `AskUserQuestion`:
-
-- **Yes, looks good** — Satisfied with changes
-- **No, something needs fixing** — Issue needs correction
-- **Run it again with modifications** — Adjust and re-implement
-
-If user needs changes, make adjustments and re-present.
-
-#### 2.4c — Update JIRA and Transition Task to Done
-
-Add a comment to the task with:
-- Implementation summary
-- Files changed
-- Acceptance criteria status
-
-Use `transitionJiraIssue` to move task to **Done**.
-
-Present confirmation:
-
-```
-[TASK-KEY]: Marked Done
-Comment added with implementation details.
-```
-
-#### 2.4d — Repeat for Each Pending Task
-
-Return to step 2.4a for the next pending task in the story.
-
-If all tasks in the story are done, proceed to 2.5.
-
-### Step 2.5 — Transition Story to Done
-
-After all tasks are implemented, use `transitionJiraIssue` to move the story to **Done**.
-
-Add a comment to the story:
-
-```
-All tasks completed.
-- [TASK-KEY] ✓
-- [TASK-KEY] ✓
-- [TASK-KEY] ✓
-
-Story ready for review and integration.
-```
+When the delegated skill returns, the child has been implemented, committed, transitioned, and commented on by `jira-executor` (directly or via `jira-story-executor` / `jira-bug-executor`). Capture the URL of the per-child JIRA comment — for Stories this is the story-level wrap-up comment produced by `jira-story-executor`; for Tasks/Subtasks/Bugs it is the per-ticket comment produced by `jira-executor` in its Step 9. Store these URLs in an in-memory map keyed by child ticket — Stage 4 aggregates them into the epic-level audit trail. Proceed to Stage 3.
 
 ---
 
-## Stage 3 — Git Commit (Per Story) {#exe.3.git-commit}
+## Stage 3 — Next Child {#exe.3.next-child}
 
-After a story is complete (all tasks done, story transitioned to Done), perform a categorized commit following the **separate commit protocol**.
-
-### Step 3.1 — Categorize Changed Files
-
-Review all files changed during this story's implementation and categorize them:
-
-- **Spec files** — Files under `.spec/` or `.flows/`
-  - Spec files: `.spec/schemas/`, `.spec/contracts/`, `.spec/rules/`, etc.
-  - Flow files: `.flows/<module>/<flow-name>/` (flow.md, e2e.yaml, unit.yaml)
-- **Implementation code** — Everything else
-
-### Step 3.2 — Commit Separately (If Multiple Categories)
-
-**Read and follow `.claude/skills/jira/_shared/references/git-workflow.md` Level 2.**
-
-If changes span multiple categories, commit separately in this order:
-
-#### Commit 1 — Specs and Flows (if any)
-
-Combine all spec and flow file changes into ONE commit:
+Show epic progress:
 
 ```
-Message: ACD-[STORY-KEY]: Add/Update spec — [description]
-Message: ACD-[STORY-KEY]: Add/Update [flow-name] flow documentation
+▶ [exe.3.next-child] — Progress
+
+Epic Progress:
+  ✅ [1] ACD-11 — Build signup flow (Done via jira-story-executor → jira-executor)
+  ✅ [2] ACD-12 — Add Postgres migration (Done via jira-executor)
+  ▶️ [3] ACD-13 — Fix session expiry (next — routing via jira-bug-executor)
+  ☐  [4] ACD-14 — Wire email-verify endpoint (pending)
 ```
 
-Use separate commits if both specs and flows were created, or a single commit if only one.
+Use `AskUserQuestion` (remember-variant allowed per `exe.remember`):
 
-#### Commit 2 — Implementation Code
+- **Continue to next child** — Hand the next pending child to the appropriate skill (per Stage 2)
+- **Stop here for now** — Pause execution; go to Stage 4 for a partial wrap-up
+- **Revisit a completed child** — Re-hand a prior child to its executor
+- **Skip this child** — Mark current child as skipped and move on
+- **Remember: always continue this session** — Don't ask between children for the rest of this session
 
-```
-Message: ACD-[STORY-KEY]: [Story summary]
-```
-
-Include all code changes.
-
-**If only one category has changes** (e.g., only code, no specs), create a single commit with the appropriate message format.
-
-### Step 3.3 — Ask About Push
-
-Use `AskUserQuestion`:
-
-- **Yes, commit and push** — Commit all changes and push to remote
-- **Commit only, don't push** — Save locally but don't push
-- **No, continue without committing** — Skip git, move to next story
-
-If committing, execute git operations and show result:
-
-```
-Committed:
-  [Story commits created and messages shown]
-
-Pushed: ✓ [to origin/current-branch]
-```
+If continuing, return to Stage 2 for the next child. If stopping, go to Stage 4.
 
 ---
 
-## Stage 4 — Next Story {#exe.4.next-story}
+## Stage 4 — Epic Completion {#exe.4.epic-completion}
 
-After stage 3 is complete for the current story:
+### Step 4.1 — Check Completion
 
-```
-Story [STORY-KEY] is complete!
-  ✓ All tasks implemented
-  ✓ Story marked Done
-  ✓ Changes committed and pushed
+Fetch the epic again and check whether all child tickets are now Done.
 
-Next: Move to the next pending story, or wrap up?
-```
+- **All done** → Proceed to 4.2.
+- **Some pending** → Proceed to 4.3 (partial completion).
+
+### Step 4.2 — Full Epic Completion
+
+**Destructive pattern applies** — transitioning the Epic to **Done** is always explicitly confirmed; the decision is never remembered across the session.
 
 Use `AskUserQuestion`:
 
-- **Continue to next story** — Implement the next pending story
-- **Stop here for now** — Pause execution (will add progress note to epic)
-- **Add context before continuing** — Provide additional notes or guidance for the next story
+- **Yes, mark Done** — Transition the Epic to Done via `transitionJiraIssue`
+- **Leave In Progress** — Keep the epic in In Progress (e.g., pending review)
+- **Custom status** — Transition to a user-named status
 
-If user wants to add context, gather it. Then repeat the question.
-
-If user continues, return to **Stage 2** with the next pending story.
-
-If user stops, proceed to **Stage 5**.
-
----
-
-## Stage 5 — Epic Completion {#exe.5.epic-completion}
-
-When all pending stories are complete (or user chooses to stop):
-
-### Step 5.1 — Check if All Work is Done
-
-Fetch the epic again and check if **all child stories and tasks are marked Done**.
-
-- **All done** → Proceed to 5.2
-- **Some pending** → Proceed to 5.3 (partial completion)
-
-### Step 5.2 — Finalize Epic (All Work Done)
-
-Transition the epic to **Done** using `transitionJiraIssue`.
-
-Add a final comment to the epic:
+Add a final comment to the epic using `addCommentToJiraIssue`, aggregating the per-child comment URLs captured in Step 2.3:
 
 ```
-Epic implementation complete!
+Epic implementation complete.
 
 Summary:
-- Stories implemented: [count]
-- Tasks completed: [count]
-- Files changed: [count]
-- Commits created: [count]
+- Children executed: [count]
+  ✅ [KEY] — [summary] (via [skill])   (comment: [URL from Step 2.3])
+  ✅ [KEY] — [summary] (via [skill])   (comment: [URL from Step 2.3])
+  ...
 
-All acceptance criteria met. Epic ready for review and deployment.
+Per-ticket implementation details (files changed, specs touched, dev
+flows, commits) live on each child ticket's own JIRA comment — the
+links above go directly to those authoritative logs. This epic-level
+comment only aggregates pointers; it does not restate what the child
+comments already say.
+
+Epic ready for review.
 ```
 
 Present the completion summary:
 
 ```
-Epic [KEY] — [Title]
-Status: ✓ DONE
+▶ [exe.4.epic-completion] — Epic Complete
 
-Implementation Summary:
-  Stories:      [X] implemented
-  Tasks:        [X] completed
-  Files:        [X] changed
-  Modules:      [list of affected modules]
-  Flow docs:    [list if created]
-  Commits:      [count] created
+═══════════════════════════════════════════════════════
+EPIC COMPLETE
+═══════════════════════════════════════════════════════
 
-All work is complete!
+Epic:     [KEY] — [Title]
+Status:   ✓ Done
+
+Children: [N] executed via downstream skills
+          (jira-executor / jira-story-executor / jira-bug-executor)
+
+═══════════════════════════════════════════════════════
 ```
 
 Use `AskUserQuestion`:
 
 - **Done, thanks!** — End the session
-- **I want to add final notes** — Add additional context before closing
+- **Add final notes to the epic** — Append extra context
+- **Move to another epic** — Provide the next epic key
 
-If user adds notes, add them to the epic comment, then offer to end.
+### Step 4.3 — Partial Completion
 
-### Step 5.3 — Partial Completion (Some Work Remaining)
+If some children are still pending:
 
-If some tasks are still pending:
+Keep the epic in its current status (should be In Progress from Step 2.0, unless manually overridden).
 
-Transition the epic to a status that reflects partial progress (e.g., **In Progress**, if it's not already).
-
-Add a progress comment to the epic:
+Add a progress comment to the epic, again aggregating the per-child comment URLs:
 
 ```
 Execution paused.
 
 Progress:
-- Completed:  [stories/tasks listed]
-- Pending:    [stories/tasks listed]
-- Files:      [count] changed so far
-- Commits:    [count] created
+- Completed: [children listed, each with link to per-child comment from Step 2.3]
+- Pending:   [children listed]
 
-Ready to resume execution at any time using: execute epic [KEY]
+Resume with: execute epic [EPIC-KEY]
 ```
 
-Present the progress summary:
+Present the summary:
 
 ```
-Execution Paused
+▶ [exe.4.epic-completion] — Execution Paused
 
-Epic [KEY] — [Title]
-Current Status: In Progress
+═══════════════════════════════════════════════════════
+EXECUTION PAUSED
+═══════════════════════════════════════════════════════
 
-Progress:
-  Completed:    [X] stories, [X] tasks
-  Pending:      [X] stories, [X] tasks
-  Files:        [X] changed
-  Commits:      [X] created
+Epic:        [KEY] — [Title]
+Status:      [current]
 
-You can resume anytime with: execute epic [KEY]
+Completed:   [X] children (via downstream skills)
+Pending:     [X] children
+
+Resume anytime with: execute epic [KEY]
+
+═══════════════════════════════════════════════════════
 ```
 
 Use `AskUserQuestion`:
 
 - **Done for now** — End the session
-- **Actually, continue with the next story** — Resume execution (return to Stage 4)
-- **I want to add notes** — Add final notes before ending
+- **Actually, continue** — Resume execution (return to Stage 2 with the next pending child)
+- **Add notes** — Additional context before ending
 
 ---
 
 ## Summary
 
-**Mode 3 (Execute Epic)** provides a complete implementation workflow:
+**Mode 3 (Execute Epic)** is an orchestrator only:
 
-1. **Load** the epic context, stories, and spec coverage
-2. **Execute** each story with spec-first checks, flow detection, and task-by-task implementation
-3. **Commit** separately (specs → flow → code) after each story
-4. **Ask** whether to continue or stop after each story
-5. **Close** the epic with a final summary once all work is done
+1. **Load** the epic and its pending children.
+2. **Iterate** the children — for each one, hand off to the right downstream skill:
+   - Story → `jira-story-executor` → `jira-executor`
+   - Task / Subtask → `jira-executor`
+   - Bug → `jira-bug-executor` → `jira-executor`
+3. **Prompt** between children (continue / stop / revisit / skip).
+4. **Close** the epic with a summary comment and Done transition once all children are Done.
 
-Each story is a complete cycle: understand → spec → flow → implement → commit → move on.
-
-The user is in control at every step — no surprises, no automation beyond what's confirmed.
+No implementation, spec-first, dev-flows, planning, coding, commits, or per-ticket JIRA comments happen inside this file — all of that is owned by `jira-executor` via the delegated skills.

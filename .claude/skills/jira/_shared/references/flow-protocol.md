@@ -1,10 +1,14 @@
 # Flow Protocol
 
+> **Scope note:** As of the single-execution-path refactor, this protocol is used **only by `jira-flow-creator`**. The executor skills (`jira-executor`, `jira-batch-executor`, `jira-epic-orchestrator`, `jira-story-executor`, `jira-bug-executor`) do **not** run flow generation — they deal with per-ticket implementation and use `.spec/dev-flows/` for the per-ticket `code-to-phrase` / `code-to-sentence` artefacts, which are a different artefact and a different concept from the `.flows/` user-journey documentation generated here.
+>
+> In short: `.flows/` = user-facing journey docs (this protocol, via `jira-flow-creator`). `.spec/dev-flows/` = per-ticket implementation log (`jira-executor` Step 2). Don't conflate them.
+
 <!-- ============================================================
      SHARED PROTOCOL: Interactive Flow Documentation
      ============================================================
-     Used by: jira-executor, jira-batch-executor, jira-epic-orchestrator (execute modes), flow-creator
-     
+     Used by: jira-flow-creator ONLY (as of the single-execution-path refactor).
+
      Purpose: When a ticket involves a user-facing workflow or process,
      create comprehensive flow documentation including:
      - flow.md — Complete flow with all scenarios and decision points
@@ -14,6 +18,11 @@
      Flow files are stored in .flows/<module>/<flow-name>/ and tracked
      separately from implementation code. Specs are the contract;
      code follows from them.
+
+     NOT used by the executor skills. Those skills generate per-ticket
+     code-to-phrase / code-to-sentence into .spec/dev-flows/ (or as a
+     JIRA comment) via jira-executor's Step 2 — see
+     .claude/jira/jira-executor-rules.md for those rules.
      ============================================================ -->
 
 ## Section IDs

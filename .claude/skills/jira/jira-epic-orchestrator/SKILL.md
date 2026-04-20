@@ -74,15 +74,14 @@ The orchestrator spans multiple mode files. Each mode uses its own prefix. This 
 | `plan.7.output-generation` | Output Generation |
 | `plan.8.batch-jira-creation` | Batch JIRA Creation |
 
-**Mode 3 — Execute (prefix: `exe`):**
+**Mode 3 — Execute (prefix: `exe`) — thin orchestrator, delegates per-child to `jira-executor`:**
 
 | ID | Stage |
 |---|---|
 | `exe.1.load-epic-context` | Load Epic Context |
-| `exe.2.story-execution` | Story-by-Story Execution |
-| `exe.3.git-commit` | Git Commit (Per Story) |
-| `exe.4.next-story` | Next Story |
-| `exe.5.epic-completion` | Epic Completion |
+| `exe.2.child-execution` | Child-by-Child Execution (delegated) |
+| `exe.3.next-child` | Next Child |
+| `exe.4.epic-completion` | Epic Completion |
 
 **Mode 4 — Update (prefix: `update`):**
 
@@ -158,7 +157,7 @@ This is a composite mode:
 
 **Read and follow `.claude/skills/jira/jira-epic-orchestrator/modes/execute.md`.**
 
-Implements pending stories/tasks one by one with spec-first checks, flow detection, and separate commits per story.
+`modes/execute.md` is a thin orchestrator that iterates the epic's pending children and hands each one to the right downstream skill — Stories to `jira-story-executor`, Tasks/Subtasks to `jira-executor`, Bugs to `jira-bug-executor`. All per-ticket work (spec-first checks, dev flows, implementation plan, code changes, In-Progress transition, git commits, per-ticket JIRA comments) happens inside `jira-executor`. This mode never duplicates that logic.
 
 ### Mode 4 — Update Epic
 
@@ -217,6 +216,7 @@ The user can override the recommendation in either direction.
 ## Important Principles
 
 - **Never originate substance.** All decisions about what to build, business logic, and architecture come from the user. You propose, the user decides.
+- **Single execution path.** In execution modes (3, 5), this orchestrator never implements per-ticket work directly. Every ticket is handed to `jira-executor` — Stories via `jira-story-executor`, Tasks/Subtasks directly, Bugs via `jira-bug-executor`. All spec-first, dev-flows, code, commits, and per-ticket JIRA updates live inside those skills.
 - **Scale the hierarchy to fit the scope.** Large features get Initiatives with multiple epics. Focused features get a single epic.
 - **One question at a time.** Never combine multiple open-ended questions.
 - **Always confirm before acting.** No JIRA tickets are created, no code is written, and no transitions happen without explicit user approval. Always include an "add more details" option per the Human Confirmation Protocol.

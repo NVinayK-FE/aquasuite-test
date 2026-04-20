@@ -27,6 +27,7 @@
 | `hcp.5.implementation-pattern` | After Implementation |
 | `hcp.6.destructive-pattern` | Before Any Destructive or Irreversible Action |
 | `hcp.7.confidence-checkpoints` | Confidence Checkpoints |
+| `hcp.8.remember-answer` | Remember Answer for the Session |
 
 ## Core Principle {#hcp.1.core-principle}
 
@@ -100,3 +101,49 @@ Use `AskUserQuestion`:
 - Before the first JIRA ticket creation in a batch
 - After the first ticket in a batch (to catch issues early before repeating)
 - Before any git push or PR creation
+
+## Remember Answer for the Session {#hcp.8.remember-answer}
+
+**This rule applies to every `AskUserQuestion` raised by any JIRA skill (router, ticket-creator, executor, bug-executor, story-executor, batch-executor, epic-orchestrator, flow-creator, etc.).**
+
+Whenever a question is one the user is likely to be asked again later in the same session — same wording, same set of choices — the question MUST include a way for the user to lock their answer for the rest of the session so the same question is not re-asked.
+
+### How to add the remember option
+
+There are two equivalent ways to surface this. Pick whichever fits the question shape better; do not invent a third.
+
+#### Pattern A — Pair each option with a "for everything in this session" variant
+
+Best when there are only 2–3 real choices and the user might want to repeat any of them. Add a sibling option next to each main choice, prefixed `Remember:`.
+
+Example (storage choice):
+
+- **JIRA comment** — Use this answer for this prompt only
+- **Spec file** — Use this answer for this prompt only
+- **Remember: always JIRA comment this session** — Don't ask this question again, treat the answer as JIRA comment for the rest of the session
+- **Remember: always Spec file this session** — Don't ask this question again, treat the answer as Spec file for the rest of the session
+- **Skip this step** — Don't store anything for this ticket
+
+#### Pattern B — Add a single "remember my last answer" toggle
+
+Best when there are many choices or the answer is freeform. Append one extra option:
+
+- **Remember my answer for this session** — Apply the same answer automatically to every future occurrence of this exact question, no re-asking
+
+The skill must then store the chosen answer keyed by the question's prompt + option-set, and on every subsequent identical `AskUserQuestion`, skip the prompt and reuse the stored answer. Briefly note in the output that the remembered answer was applied (one line, e.g. `▸ Using remembered choice: "JIRA comment"`).
+
+### Scope and lifetime
+
+- **Session-scoped only.** Remembered answers are forgotten when the session ends. Do NOT persist them to disk or to memory files.
+- **Question-scoped only.** A remembered answer applies only to the exact same question (same prompt, same option set). Different questions are still asked.
+- **Override.** The user can unstick a remembered answer at any time by saying "ask me again about <topic>" or "forget my last choice for <topic>". When that happens, drop the remembered answer for that question.
+- **Never remember destructive confirmations.** Questions covered by `hcp.6.destructive-pattern` (JIRA creation, git push, status transitions, deleting files, force-pushing, etc.) MUST always be asked fresh. Do not offer a remember option for those.
+- **Never remember the meta-decision.** Don't ask "should I remember answers in general?" — the option is opt-in per question.
+
+### When NOT to add a remember option
+
+- Destructive / irreversible actions (see `hcp.6.destructive-pattern`).
+- Questions whose right answer depends on context that changes between occurrences (e.g., "Does this ticket understanding look right?" — the ticket changes every time).
+- Confidence checkpoints (`hcp.7`) — the whole point is the human pausing.
+
+For everything else (storage choice, format choice, "include code-to-sentence?", "skip this subtask?", "create the spec now?", "use auto-generated commit message?", etc.), the remember option must be available.
